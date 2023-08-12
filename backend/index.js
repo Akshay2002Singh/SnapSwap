@@ -14,7 +14,7 @@ app.use('/static', express.static('static'))
 // routes 
 app.use('/',require('./routes/basic'))
 app.use('/api/auth',require('./routes/auth'))
-app.use('/api/linktree',require('./routes/linktree'))
+app.use('/api/images',require('./routes/image'))
 
 
 app.listen(port,()=>{
