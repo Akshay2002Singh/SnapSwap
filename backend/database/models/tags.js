@@ -1,19 +1,19 @@
 const mongoose = require('mongoose')
 const { Schema } = mongoose;
 
-const authSchema = new Schema({
+const tagModel = new Schema({
     tag: {
         type: String,
         required: true,
         index : true
     },
-    name: {
+    path: {
         type: String,
         required: true,
     }
 });
 
 
-const ImageModel = mongoose.model('ImageModel', authSchema);
+const TagModel = mongoose.model('TagModel', tagModel);
 
-module.exports = ImageModel
+module.exports = TagModel

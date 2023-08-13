@@ -2,16 +2,15 @@ const mongoose = require('mongoose')
 const { Schema } = mongoose;
 
 const imageSchema = new Schema({
-    name: {
+    title: {
         type: String,
         required: true,
-        unique: true,
-        index : true
     },
     path: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        index : true
     },
     username : {
         type : String,

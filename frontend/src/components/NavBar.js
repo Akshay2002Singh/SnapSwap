@@ -1,7 +1,35 @@
 import React from 'react'
+import { Link } from 'react-router-dom';
 
+function NavButtons(props) {
+    function handleLogout() {
+        props.setAuthToken(null)
+        localStorage.removeItem("SnapSwapAuthtoken");
+    }
+    if (props.authToken === null) {
+        return (
+            <>
+                <Link to="/sign_up" >
+                    <button className="btn btn-outline-success mx-1">Sign Up</button>
+                </Link>
+                <Link to="/sign_in">
+                    <button className="btn btn-outline-success mx-1">Login</button>
+                </Link>
+            </>
+        )
+    } else {
+        return (
+            <>
+                <Link>
+                <button className="btn btn-outline-success mx-1" onClick={handleLogout}>Logout</button>
+                </Link>
+            </>
+        )
+    }
+}
 
-function NavBar() {
+function NavBar(props) {
+
     return (
         <nav className="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
             <div className="container-fluid">
@@ -12,15 +40,17 @@ function NavBar() {
                 <div className="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul className="navbar-nav me-auto mb-2 mb-lg-0">
                         <li className="nav-item">
-                            <a className="nav-link active" aria-current="page" href="#">Home</a>
+                            <Link to='/' className="nav-link active" aria-current="page" href="#">Home</Link>
                         </li>
                         <li className="nav-item">
-                            <a className="nav-link" href="#">Upload</a>
+                            <Link to='/upload' className="nav-link" href="#">Upload</Link>
+                        </li>
+                        <li className="nav-item">
+                            <Link to='/search' className="nav-link" href="#">Search</Link>
                         </li>
                     </ul>
-                    <div className="d-flex"> 
-                            <button className="btn btn-outline-success mx-1" type="submit">Sign Up</button>
-                            <button className="btn btn-outline-success mx-2" type="submit">Login</button>
+                    <div className="d-flex">
+                        <NavButtons authToken={props.authToken} setAuthToken={props.setAuthToken} />
                     </div>
                 </div>
             </div>

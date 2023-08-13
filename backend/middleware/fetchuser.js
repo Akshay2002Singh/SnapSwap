@@ -10,7 +10,7 @@ const fetchUser = (req,res,next) => {
     }
     // console.log("fetch user")
     const data = jwt.verify(token,JWT_SECRET);
-    // req.body.username = data.username;
+    req.body.username = data.username;
     req.header.username = data.username;
     next()
 }
