@@ -6,6 +6,7 @@ const ImageModel = require('../database/models/Images')
 const TagModel = require('../database/models/tags')
 const path = require('path')
 const fs = require('fs')
+const fsPromises = fs.promises
 const { v4: uuidv4 } = require('uuid')
 const sharp = require('sharp')
 const ffmpeg = require('fluent-ffmpeg')
@@ -195,7 +196,7 @@ router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
             await createVideoWatermark(originalAbsolutePath, watermarkAbsolutePath)
         }
 
-        await ImageModel.create({
+        const createdRecord = await ImageModel.create({
             title: req.body.title,
             path: originalRelativePath,
             watermarkPath: watermarkRelativePath,
@@ -215,7 +216,15 @@ router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
         });
 
         res.json({
-            'msg': fileType === 'video' ? "video saved" : "image saved"
+            'msg': fileType === 'video' ? "video saved" : "image saved",
+            'data': {
+                _id: createdRecord._id,
+                title: createdRecord.title,
+                path: createdRecord.path,
+                watermarkPath: createdRecord.watermarkPath,
+                username: createdRecord.username,
+                fileType: createdRecord.fileType
+            }
         })
     } catch (error) {
         // Delete files if processing fails
@@ -369,6 +378,58 @@ router.get('/getImages', async (req, res) => {
         data: new_data,
         morePage: ((page + 1) * 10) < data.length
     })
+})
+
+router.delete('/:id', fetchUser, async (req, res) => {
+    try {
+        const image = await ImageModel.findById(req.params.id)
+        if (!image) {
+            return res.status(404).json({ msg: 'Media not found' })
+        }
+
+        if (image.username !== req.header.username) {
+            return res.status(403).json({ msg: 'Not authorized to delete this media' })
+        }
+
+        const staticDir = path.normalize(path.join(__dirname, '..', 'static'))
+
+        const resolvePathIfSafe = (relativePath) => {
+            if (!relativePath) return null
+            const absolutePath = path.normalize(path.resolve(__dirname, '..', relativePath))
+            const relativeToStatic = path.relative(staticDir, absolutePath)
+            if (
+                relativeToStatic.startsWith('..') ||
+                path.isAbsolute(relativeToStatic)
+            ) {
+                return null
+            }
+            return absolutePath
+        }
+
+        const safeUnlink = async (targetPath) => {
+            if (!targetPath) return
+            try {
+                await fsPromises.unlink(targetPath)
+            } catch (error) {
+                if (error.code !== 'ENOENT') {
+                    throw error
+                }
+            }
+        }
+
+        await Promise.all([
+            safeUnlink(resolvePathIfSafe(image.path)),
+            safeUnlink(resolvePathIfSafe(image.watermarkPath)),
+        ])
+
+        await ImageModel.findByIdAndDelete(req.params.id)
+        await TagModel.deleteMany({ path: image.path })
+
+        return res.json({ msg: 'Media deleted' })
+    } catch (error) {
+        console.error('Error deleting media:', error)
+        return res.status(500).json({ msg: 'Failed to delete media' })
+    }
 })
 
 router.post('/search', async (req, res) => {

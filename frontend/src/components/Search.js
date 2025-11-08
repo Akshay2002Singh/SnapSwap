@@ -82,17 +82,21 @@ function Search(props) {
 
 
 
-    const showImages = imageData.map((data, index) => {
-        return (
-            <Card
-                key={data._id || data.path || index}
-                data={data}
-                index={index}
-                setMsg={setMsg}
-                authToken={props.authToken}
-            />
-        )
-    })
+    const handleCardDelete = (id) => {
+        setImageData(prev => prev.filter(item => item._id !== id))
+    }
+
+    const showImages = imageData.map((data, index) => (
+        <Card
+            key={data._id || data.path || index}
+            data={data}
+            index={index}
+            setMsg={setMsg}
+            authToken={props.authToken}
+            currentUsername={props.currentUsername}
+            onDelete={handleCardDelete}
+        />
+    ))
 
     return (
         <>

@@ -3,20 +3,21 @@ import obj from '../url'
 
 function Card(props) {
     const backend_url = obj.backend_url
-    // Default to 'image' if fileType is not set (for backward compatibility)
-    const isVideo = props.data.fileType === 'video'
+    const { data, authToken, setMsg, currentUsername, onDelete, index } = props
+    const isVideo = data.fileType === 'video'
     const [isModalOpen, setIsModalOpen] = useState(false)
-    
+    const [isDeleting, setIsDeleting] = useState(false)
+
     function save_file(url, title, fileType) {
-        if(!props.authToken){
-            props.setMsg(`Sign in to download ${fileType}`)
-            window.scroll(0,0)
+        if (!authToken) {
+            setMsg(`Sign in to download ${fileType}`)
+            window.scroll(0, 0)
             return
         }
-        props.setMsg(`Downloading ${fileType === 'video' ? 'Video' : 'Image'}`)
+        setMsg(`Downloading ${fileType === 'video' ? 'Video' : 'Image'}`)
         fetch(url, {
             headers: {
-                'authToken': props.authToken
+                'authToken': authToken
             }
         })
             .then(resp => resp.blob())
@@ -25,18 +26,16 @@ function Card(props) {
                 const anchor = document.createElement('a');
                 anchor.style.display = 'none';
                 anchor.href = blob;
-                // Add appropriate file extension
                 const ext = fileType === 'video' ? '.mp4' : '';
                 anchor.download = title + ext;
                 document.body.appendChild(anchor);
                 anchor.click();
                 window.URL.revokeObjectURL(blob);
-                props.setMsg(`${fileType === 'video' ? 'Video' : 'Image'} Downloaded`)
+                setMsg(`${fileType === 'video' ? 'Video' : 'Image'} Downloaded`)
             })
-            .catch(() => props.setMsg(`Sorry, an error occurred in downloading the ${fileType === 'video' ? 'Video' : 'Image'}`));
+            .catch(() => setMsg(`Sorry, an error occurred in downloading the ${fileType === 'video' ? 'Video' : 'Image'}`));
     }
-    
-    // Get video filename from stored path
+
     const getVideoFilename = (filePath) => {
         if (!filePath) return '';
         const parts = filePath.split(/[\\/]/);
@@ -44,8 +43,8 @@ function Card(props) {
     }
 
     const appendAuthToken = (url) => {
-        if (!props.authToken) return url
-        const tokenParam = `authToken=${encodeURIComponent(props.authToken)}`
+        if (!authToken) return url
+        const tokenParam = `authToken=${encodeURIComponent(authToken)}`
         return url.includes('?') ? `${url}&${tokenParam}` : `${url}?${tokenParam}`
     }
 
@@ -55,7 +54,7 @@ function Card(props) {
         const baseUrl = `${backend_url}/api/images/stream/${encodeURIComponent(filename)}`;
         return appendAuthToken(baseUrl);
     }
-    
+
     const handleOpenModal = useCallback(() => {
         setIsModalOpen(true)
     }, [])
@@ -64,12 +63,63 @@ function Card(props) {
         setIsModalOpen(false)
     }, [])
 
-    const previewImageSrc = appendAuthToken(`${backend_url}/${props.data.path}`)
-    const previewVideoSrc = getVideoStreamUrl(props.data.path)
+    const previewImageSrc = appendAuthToken(`${backend_url}/${data.path}`)
+    const previewVideoSrc = getVideoStreamUrl(data.path)
+    const mediaId = data?._id
+    const isOwner = Boolean(currentUsername && data?.username && currentUsername === data.username)
+
+    const handleDelete = useCallback(async () => {
+        if (!isOwner) {
+            setMsg('You can only delete media you uploaded.')
+            return
+        }
+
+        if (!authToken) {
+            setMsg('Sign in to delete media')
+            return
+        }
+
+        if (!mediaId) {
+            setMsg('Unable to delete this media')
+            return
+        }
+
+        try {
+            setIsDeleting(true)
+            const response = await fetch(`${backend_url}/api/images/${mediaId}`, {
+                method: 'DELETE',
+                headers: {
+                    'authToken': authToken
+                }
+            })
+
+            let payload = {}
+            try {
+                payload = await response.json()
+            } catch (error) {
+                payload = {}
+            }
+
+            if (!response.ok || payload.msg !== 'Media deleted') {
+                throw new Error(payload.msg || 'Failed to delete media')
+            }
+
+            setMsg('Media deleted')
+            if (typeof onDelete === 'function') {
+                onDelete(mediaId)
+            }
+            setIsModalOpen(false)
+        } catch (error) {
+            console.error('Failed to delete media:', error)
+            setMsg(error.message || 'Failed to delete media')
+        } finally {
+            setIsDeleting(false)
+        }
+    }, [authToken, backend_url, isOwner, mediaId, onDelete, setMsg])
 
     return (
         <>
-            <div className='cardBox' index={props.index}>
+            <div className='cardBox' index={index}>
                 <div
                     className='cardPreview'
                     role='button'
@@ -88,20 +138,20 @@ function Card(props) {
                         <img
                             className='cardPreviewMedia'
                             src={previewImageSrc}
-                            alt={props.data.title}
+                            alt={data.title}
                             loading='lazy'
                         />
                     )}
                     <span className='cardPreviewHint'>Tap to open</span>
                 </div>
-                <span className='imgTitle'>{props.data.title}</span>
-                <span className='imgUploadBy'>Uploaded By : {props.data.username}</span>
+                <span className='imgTitle'>{data.title}</span>
+                <span className='imgUploadBy'>Uploaded By : {data.username}</span>
 
                 <button class="button" onClick={()=>save_file(
                     isVideo 
-                        ? getVideoStreamUrl(props.data.path)
-                        : appendAuthToken(`${backend_url}/${props.data.path}`), 
-                    props.data.title,
+                        ? getVideoStreamUrl(data.path)
+                        : appendAuthToken(`${backend_url}/${data.path}`), 
+                    data.title,
                     isVideo ? 'video' : 'image'
                 )}>
                     <span>Download</span>
@@ -124,13 +174,25 @@ function Card(props) {
                             ) : (
                                 <img
                                     src={previewImageSrc}
-                                    alt={props.data.title}
+                                    alt={data.title}
                                 />
                             )}
                         </div>
                         <div className='mediaModalMeta'>
-                            <div className='mediaModalTitle'>{props.data.title}</div>
-                            <div className='mediaModalUploader'>Uploaded by {props.data.username}</div>
+                            <div className='mediaModalHeader'>
+                                <div className='mediaModalTitle'>{data.title}</div>
+                                {isOwner && (
+                                    <button
+                                        type='button'
+                                        className='mediaModalDelete'
+                                        onClick={handleDelete}
+                                        disabled={isDeleting}
+                                    >
+                                        {isDeleting ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                )}
+                            </div>
+                            <div className='mediaModalUploader'>Uploaded by {data.username}</div>
                         </div>
                     </div>
                 </div>

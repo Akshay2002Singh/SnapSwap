@@ -11,27 +11,56 @@ function Home(props) {
     const backend_url = obj.backend_url
     const [imageData, setImageData] = useState([])
     const [searchParams, setSearchParams] = useSearchParams()
-    const currentPage = parseInt(searchParams.get('page')) || 1
     const [morePage, setMorePage] = useState(false)
     const [msg, setMsg] = useState("")
     const [loader, setLoader] = useState(true)
 
     const page = parseInt(searchParams.get('page')) || 1
 
+    const handleCardDelete = (id) => {
+        setImageData((prev) => prev.filter((item) => item._id !== id))
+    }
+
+    const handleNext = () => {
+        setSearchParams({ page: String(page + 1) })
+    }
+
+    const handlePrevious = () => {
+        const targetPage = page - 1
+        if (targetPage <= 1) {
+            setSearchParams({})
+        } else {
+            setSearchParams({ page: String(targetPage) })
+        }
+    }
+
     const showImages = imageData.map((data, index) => {
-        return <Card data={data} index={index} setMsg={setMsg} authToken={props.authToken} />
+        return (
+            <Card
+                key={data._id || data.path || index}
+                data={data}
+                index={index}
+                setMsg={setMsg}
+                authToken={props.authToken}
+                currentUsername={props.currentUsername}
+                onDelete={handleCardDelete}
+            />
+        )
     })
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 setLoader(true)
-                const res = await fetch(`${backend_url}/api/images/getImages?page=${page - 1 < 0 ? 0 : page - 1}`)
-                const data = await res.json()
-                setImageData(data.data)
-                setMorePage(data.morePage)
-            } catch (err) {
-                console.error(err)
+                const response = await fetch(`${backend_url}/api/images/getImages?page=${page - 1 < 0 ? 0 : page - 1}`)
+                const data = await response.json()
+                setImageData(Array.isArray(data.data) ? data.data : [])
+                setMorePage(Boolean(data.morePage))
+            } catch (error) {
+                console.error(error)
+                setImageData([])
+                setMorePage(false)
+                setMsg('Unable to load gallery right now.')
             } finally {
                 setLoader(false)
             }
@@ -39,10 +68,7 @@ function Home(props) {
 
         fetchData()
 
-    }, [page])
-
-    const handleNext = () => setSearchParams({ page: page + 1 })
-    const handlePrevious = () => setSearchParams({ page: page - 1 })
+    }, [page, backend_url])
 
     return (
         <>
