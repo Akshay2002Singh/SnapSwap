@@ -433,62 +433,61 @@ router.delete('/:id', fetchUser, async (req, res) => {
 })
 
 router.post('/search', async (req, res) => {
-    // find paths of image 
-    // console.log(typeof(req.body.val))
-    const data = await TagModel.find(
-        {
-            tag: { $in: JSON.parse(req.body.val) }
-        }, { path: 1, _id: 0 })
-        .catch((e) => {
-            return res.status(400).json({
-                'msg': "error"
-            })
-        })
-
-    if (!data) {
-        return res.json({
-            'msg': "data not found"
-        })
-    }
-    // find count 
     try {
-        var obj = {}
+        const rawValue = req.body.val
+        let tagList = []
 
-        data.forEach(element => {
-            if (Object.keys(obj).indexOf(element.path) === -1) {
-                obj[element.path] = 1
-            } else {
-                obj[element.path] = obj[element.path] + 1
+        if (Array.isArray(rawValue)) {
+            tagList = rawValue
+        } else if (typeof rawValue === 'string') {
+            try {
+                tagList = JSON.parse(rawValue || '[]')
+            } catch (error) {
+                return res.status(400).json({ msg: 'Invalid search payload' })
             }
-        });
+        }
 
-        // sort 
+        const tags = (tagList || [])
+            .filter(Boolean)
+            .map((tag) => String(tag).trim().toLowerCase())
+            .filter(Boolean)
 
-        obj = Object.entries(obj).sort((a, b) => b[1] - a[1]);
+        if (!tags.length) {
+            return res.json({ data: [], msg: 'data not found' })
+        }
 
-        // make list of paths 
-        let pathList = obj.map((element) => {
-            return element[0]
-        })
+        const imageCollectionName = ImageModel.collection.name
 
-        const finalData = await ImageModel.find(
+        const results = await TagModel.aggregate([
+            { $match: { tag: { $in: tags } } },
+            { $group: { _id: '$path', matchCount: { $sum: 1 } } },
+            { $sort: { matchCount: -1, _id: 1 } },
             {
-                path: { $in: pathList }
-            })
-            .catch((e) => {
-                return res.status(400).json({
-                    'msg': "error"
-                })
-            })
+                $lookup: {
+                    from: imageCollectionName,
+                    localField: '_id',
+                    foreignField: 'path',
+                    as: 'media'
+                }
+            },
+            { $unwind: '$media' },
+            {
+                $replaceRoot: {
+                    newRoot: {
+                        $mergeObjects: ['$media', { matchCount: '$matchCount' }]
+                    }
+                }
+            }
+        ])
 
-        res.json({
-            data: finalData,
-            msg: "data found"
-        })
+        if (!results.length) {
+            return res.json({ data: [], msg: 'data not found' })
+        }
+
+        return res.json({ data: results, msg: 'data found' })
     } catch (error) {
-        return res.status(400).json({
-            'msg': "error"
-        })
+        console.error('Search aggregation failed:', error)
+        return res.status(500).json({ msg: 'error' })
     }
 })
 
