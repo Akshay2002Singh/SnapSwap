@@ -142,7 +142,7 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
     const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-    
+
     if (allowedImageTypes.includes(file.mimetype)) {
         cb(null, true);
     } else if (allowedVideoTypes.includes(file.mimetype)) {
@@ -153,8 +153,8 @@ const fileFilter = (req, file, cb) => {
 }
 
 // Create separate upload handlers for images and videos
-const upload = multer({ 
-    storage, 
+const upload = multer({
+    storage,
     fileFilter,
     limits: {
         fileSize: 12 * 1024 * 1024 // 12MB max for videos (also applies to images)
@@ -170,7 +170,7 @@ router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
 
     // Determine file type
     const fileType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
-    
+
     // Check file size for videos (5MB limit)
     if (fileType === 'video' && req.file.size > 12 * 1024 * 1024) {
         // Delete the uploaded file
@@ -203,7 +203,7 @@ router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
             username: req.header.username,
             fileType: fileType
         })
-        
+
         // Create tags
         const tags = JSON.parse(req.body.tags || '[]')
         tags.forEach((element) => {
@@ -459,7 +459,13 @@ router.post('/search', async (req, res) => {
         const imageCollectionName = ImageModel.collection.name
 
         const results = await TagModel.aggregate([
-            { $match: { tag: { $in: tags } } },
+            {
+                $match: {
+                    $or: tags.map(tag => ({
+                        tag: { $regex: tag, $options: 'i' }
+                    }))
+                }
+            },
             { $group: { _id: '$path', matchCount: { $sum: 1 } } },
             { $sort: { matchCount: -1, _id: 1 } },
             {
