@@ -61,7 +61,7 @@ function Card(props) {
                 {isVideo ? (
                     <video 
                         controls 
-                        style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
+                        // style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
                         src={getVideoStreamUrl(props.data.path)}
                         preload="metadata"
                     >
@@ -70,6 +70,7 @@ function Card(props) {
                 ) : (
                     <img 
                         src={appendAuthToken(`${backend_url}/${props.data.path}`)} 
+                        // style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
                         alt={props.data.title} 
                     />
                 )}

@@ -12,33 +12,37 @@ function Home(props) {
     const [imageData, setImageData] = useState([])
     const [searchParams, setSearchParams] = useSearchParams()
     const currentPage = parseInt(searchParams.get('page')) || 1
-    const [page, setPage] = useState(currentPage)
     const [morePage, setMorePage] = useState(false)
     const [msg, setMsg] = useState("")
     const [loader, setLoader] = useState(true)
 
-    
+    const page = parseInt(searchParams.get('page')) || 1
 
     const showImages = imageData.map((data, index) => {
         return <Card data={data} index={index} setMsg={setMsg} authToken={props.authToken} />
     })
 
     useEffect(() => {
-        setLoader(true)
-        fetch(`${backend_url}/api/images/getImages?page=${page-1 < 0 ? 0 : page-1}`).
-            then(response => response.json()).
-            then(data => {
+        const fetchData = async () => {
+            try {
+                setLoader(true)
+                const res = await fetch(`${backend_url}/api/images/getImages?page=${page - 1 < 0 ? 0 : page - 1}`)
+                const data = await res.json()
                 setImageData(data.data)
-                // setPage(page + 1)
                 setMorePage(data.morePage)
-                console.log(data.data)
-            }).catch(error => console.log(error))
-        setLoader(false)
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setLoader(false)
+            }
+        }
+
+        fetchData()
+
     }, [page])
 
-    useEffect(() => {
-        setSearchParams({ page })
-    }, [page])
+    const handleNext = () => setSearchParams({ page: page + 1 })
+    const handlePrevious = () => setSearchParams({ page: page - 1 })
 
     return (
         <>
@@ -63,7 +67,7 @@ function Home(props) {
             <div className='homeBtnHolder'>
                 <div id='previousHolder'>
                     {page > 1 ?
-                        <button class="btn-class-previous" onClick={() => setPage(page - 1)}>
+                        <button class="btn-class-previous" onClick={handlePrevious}>
                             <svg viewBox="0 0 320 512" height="1em" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z">
                                 </path>
@@ -74,7 +78,7 @@ function Home(props) {
                 </div>
                 <div id='nextHolder'>
                     {morePage ?
-                        <button class="btn-class-next" onClick={() => setPage(page + 1)}>
+                        <button class="btn-class-next" onClick={handleNext}>
                             <span>Next</span>
                             <svg viewBox="0 0 320 512" height="1em" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z">
