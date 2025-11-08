@@ -12,9 +12,21 @@ const imageSchema = new Schema({
         unique: true,
         index : true
     },
+    watermarkPath: {
+        type: String,
+        required: true,
+        unique: true,
+        index: true
+    },
     username : {
         type : String,
         required : true
+    },
+    fileType: {
+        type: String,
+        enum: ['image', 'video'],
+        default: 'image',
+        required: true
     }
 });
 

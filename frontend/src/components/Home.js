@@ -5,14 +5,19 @@ import Alertmst from './Alertmst'
 import Background from './Background'
 import Card from './Card'
 import { TailSpin } from 'react-loader-spinner'
+import { useSearchParams } from 'react-router-dom'
 
 function Home(props) {
     const backend_url = obj.backend_url
     const [imageData, setImageData] = useState([])
-    const [page, setPage] = useState(0)
+    const [searchParams, setSearchParams] = useSearchParams()
+    const currentPage = parseInt(searchParams.get('page')) || 1
+    const [page, setPage] = useState(currentPage)
     const [morePage, setMorePage] = useState(false)
     const [msg, setMsg] = useState("")
     const [loader, setLoader] = useState(true)
+
+    
 
     const showImages = imageData.map((data, index) => {
         return <Card data={data} index={index} setMsg={setMsg} authToken={props.authToken} />
@@ -20,7 +25,7 @@ function Home(props) {
 
     useEffect(() => {
         setLoader(true)
-        fetch(`${backend_url}/api/images/getImages?page=${page}`).
+        fetch(`${backend_url}/api/images/getImages?page=${page-1 < 0 ? 0 : page-1}`).
             then(response => response.json()).
             then(data => {
                 setImageData(data.data)
@@ -31,12 +36,16 @@ function Home(props) {
         setLoader(false)
     }, [page])
 
+    useEffect(() => {
+        setSearchParams({ page })
+    }, [page])
+
     return (
         <>
             <NavBar authToken={props.authToken} setAuthToken={props.setAuthToken} />
             <Alertmst msg={msg} setMsg={setMsg} />
             <Background />
-            <h1 className='mainHeading'>Image Gallery</h1>
+            <h1 className='mainHeading'>Image & Video Gallery</h1>
 
             <TailSpin
                 height="250"
@@ -53,7 +62,7 @@ function Home(props) {
             </div>
             <div className='homeBtnHolder'>
                 <div id='previousHolder'>
-                    {page > 0 ?
+                    {page > 1 ?
                         <button class="btn-class-previous" onClick={() => setPage(page - 1)}>
                             <svg viewBox="0 0 320 512" height="1em" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M310.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L242.7 256 73.4 86.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l192 192z">

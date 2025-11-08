@@ -11,6 +11,7 @@ function Upload(props) {
     const navigate = useNavigate()
     const [title, setTitle] = useState("")
     const [image, setImage] = useState(null)
+    const [fileType, setFileType] = useState("image") // 'image' or 'video'
     const [msg, setMsg] = useState("")
     const [defaultImg, setDefaultImg] = useState(`${process.env.PUBLIC_URL}upload.png`)
     const [showLoader, setShowLoader] = useState(false)
@@ -38,12 +39,24 @@ function Upload(props) {
             body: formData,
         }).catch(error => console.log(error))
         const data = await response.json()
-        if(data.msg === "image not saved"){
+        if(data.msg === "file not saved" || data.msg === "image not saved"){
             setMsg("Something went wrong, Data not saved")
+        }else if(data.msg === "Video size exceeds 12MB limit"){
+            setMsg("Video size exceeds 12MB limit. Please upload a smaller video.")
         }else{
             setTitle("")
-            document.getElementById("imgPreview").src = defaultImg;
+            if(fileType === "image") {
+                document.getElementById("imgPreview").src = defaultImg;
+            } else {
+                const videoPreview = document.getElementById("videoPreview");
+                if(videoPreview) {
+                    videoPreview.src = "";
+                    videoPreview.style.display = "none";
+                }
+                document.getElementById("imgPreview").style.display = "block";
+            }
             setImage(null)
+            setFileType("image")
             setTag([""])
             setMsg("Data saved successfully")
         }
@@ -52,13 +65,66 @@ function Upload(props) {
     }
 
     const handlePhoto = (e) => {
-        // console.log(e.target.files[0])
-        if (e.target.files[0]) {
-            document.getElementById("imgPreview").src = URL.createObjectURL(e.target.files[0]);
-            setImage(e.target.files[0]);
+        const file = e.target.files[0];
+        if (file) {
+            const isVideo = file.type.startsWith('video/');
+            const isImage = file.type.startsWith('image/');
+            
+            if (isVideo) {
+                // Check file size (12MB limit)
+                if (file.size > 12 * 1024 * 1024) {
+                    setMsg("Video size exceeds 12MB limit. Please select a smaller video.");
+                    e.target.value = ""; // Reset file input
+                    return;
+                }
+                setFileType("video");
+                setImage(file);
+                
+                // Hide image preview, show video preview
+                const imgPreview = document.getElementById("imgPreview");
+                let videoPreview = document.getElementById("videoPreview");
+                
+                if (!videoPreview) {
+                    // Create video element if it doesn't exist
+                    videoPreview = document.createElement("video");
+                    videoPreview.id = "videoPreview";
+                    videoPreview.controls = true;
+                    videoPreview.style.maxWidth = "100%";
+                    videoPreview.style.maxHeight = "300px";
+                    videoPreview.style.display = "block";
+                    videoPreview.style.margin = "10px auto";
+                    imgPreview.parentNode.insertBefore(videoPreview, imgPreview.nextSibling);
+                }
+                
+                videoPreview.src = URL.createObjectURL(file);
+                videoPreview.style.display = "block";
+                imgPreview.style.display = "none";
+            } else if (isImage) {
+                setFileType("image");
+                setImage(file);
+                
+                const imgPreview = document.getElementById("imgPreview");
+                const videoPreview = document.getElementById("videoPreview");
+                if (videoPreview) {
+                    videoPreview.style.display = "none";
+                    videoPreview.src = "";
+                }
+                imgPreview.src = URL.createObjectURL(file);
+                imgPreview.style.display = "block";
+            } else {
+                setMsg("Please select an image or video file.");
+                e.target.value = "";
+            }
         } else {
             document.getElementById("imgPreview").src = defaultImg;
+            document.getElementById("imgPreview").style.display = "block";
+            const videoPreview = document.getElementById("videoPreview");
+            if (videoPreview) {
+                videoPreview.style.display = "none";
+                videoPreview.src = "";
+            }
             setImage(null);
+            setFileType("image");
         }
     }
 
@@ -93,16 +159,17 @@ function Upload(props) {
             <Alertmst msg={msg} setMsg={setMsg} />
             <Background />
             <div className="link-form-container">
-                <p className="title">Upload Image</p>
+                <p className="title">Upload Image or Video</p>
                 <form className="form" onSubmit={handleSubmit}>
                     <div className="link-input-group">
                         <label htmlFor="name">Title</label>
-                        <input type="text" name="name" id="name" placeholder="Image Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+                        <input type="text" name="name" id="name" placeholder="File Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
                     </div>
                     <div className="link-input-group">
-                        <label htmlFor="Profile">Profile photo</label>
-                        <input type="file" name="Profile" id="Profile" accept="image/*" onChange={handlePhoto} required />
-                        <img src={defaultImg} alt='Image Preview' id='imgPreview' />
+                        <label htmlFor="Profile">Upload Image or Video</label>
+                        <input type="file" name="Profile" id="Profile" accept="image/*,video/*" onChange={handlePhoto} required />
+                        <img src={defaultImg} alt='Image Preview' id='imgPreview' style={{display: 'block'}} />
+                        <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>Videos must be 5MB or less</p>
                     </div>
                     <p className="sub-title">Tags</p>
                     <div className='flex-container'>
