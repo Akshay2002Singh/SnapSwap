@@ -11,43 +11,69 @@ function Search(props) {
     const backend_url = obj.backend_url
     const [imageData, setImageData] = useState([])
     const [msg, setMsg] = useState("")
-    const [loader,setLoader] = useState(false)
+    const [loader, setLoader] = useState(false)
+    const [hasSearched, setHasSearched] = useState(false)
 
     const handleSubmit = async () => {
-        let val = document.getElementById("searchInput").value
-        setLoader(true)
-        if (!val) {
+        const inputElement = document.getElementById("searchInput")
+        const rawValue = inputElement ? inputElement.value : ''
+        const trimmedValue = rawValue.trim()
+
+        if (!trimmedValue) {
+            setImageData([])
+            setMsg("Please enter a search term")
+            setLoader(false)
+            setHasSearched(true)
             return
         }
-        val = val.toLowerCase()
-        val = val.split(" ")
-        val = JSON.stringify(val)
-        const response = await fetch(`${backend_url}/api/images/search`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                'val': val
-            }),
-        }).catch(error => {
-            setMsg("Something Went Wrong")
-            console.log(error)
-        })
-        const data = await response.json()
 
-        if (data.msg === 'data not found') {
-            setMsg("No match found")
-        } else if (data.msg === 'error') {
+        setLoader(true)
+
+        const tags = JSON.stringify(
+            trimmedValue
+                .toLowerCase()
+                .split(/\s+/)
+                .filter(Boolean)
+        )
+
+        try {
+            const response = await fetch(`${backend_url}/api/images/search`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    'val': tags
+                }),
+            })
+
+            if (!response) {
+                throw new Error('No response received')
+            }
+
+            const data = await response.json()
+
+            if (!data || data.msg === 'data not found' || !Array.isArray(data.data) || data.data.length === 0) {
+                setImageData([])
+                setMsg("No match found")
+            } else if (data.msg === 'error') {
+                setImageData([])
+                setMsg("Something went wrong")
+            } else {
+                setImageData(data.data)
+                setMsg("")
+            }
+        } catch (error) {
+            console.log(error)
+            setImageData([])
             setMsg("Something went wrong")
-        } else {
-            setImageData(data.data)
-            setMsg("")
+        } finally {
+            setLoader(false)
+            setHasSearched(true)
         }
-        setLoader(false)
     }
 
-    const handleEnter = (event)=>{
+    const handleEnter = (event) => {
         if (event.keyCode === 13) {
             event.preventDefault();
             document.getElementById("searchBtn").click();
@@ -57,7 +83,15 @@ function Search(props) {
 
 
     const showImages = imageData.map((data, index) => {
-        return <Card data={data} index={index} setMsg={setMsg} authToken={props.authToken} />
+        return (
+            <Card
+                key={data._id || data.path || index}
+                data={data}
+                index={index}
+                setMsg={setMsg}
+                authToken={props.authToken}
+            />
+        )
     })
 
     return (
@@ -79,7 +113,6 @@ function Search(props) {
                     </div>
                 </div>
             </div>
-            <h1 className='mainHeading'>Search Results</h1>
             <FidgetSpinner
                 visible={loader}
                 height="250"
@@ -90,9 +123,22 @@ function Search(props) {
                 ballColors={['#ff0000', '#00ff00', '#0000ff']}
                 backgroundColor="#F4442E"
             />
-            <div id='home_image_container'>
-                {showImages}
-            </div>
+            {imageData.length > 0 ?
+                <>
+                    <h1 className='mainHeading'>Search Results</h1>
+                    <div id='home_image_container'>
+                        {showImages}
+                    </div>
+                </>
+                : null}
+            {
+                !loader && imageData.length === 0 && hasSearched ?
+                    <div style={{ color: "#e0dfdf", textAlign: "center", marginTop: "20px" }}>
+                        No results yet. Try different keywords.
+                    </div>
+                    :
+                    null
+            }
         </>
     )
 }
