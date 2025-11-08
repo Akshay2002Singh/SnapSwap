@@ -1,10 +1,11 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import obj from '../url'
 
 function Card(props) {
     const backend_url = obj.backend_url
     // Default to 'image' if fileType is not set (for backward compatibility)
     const isVideo = props.data.fileType === 'video'
+    const [isModalOpen, setIsModalOpen] = useState(false)
     
     function save_file(url, title, fileType) {
         if(!props.authToken){
@@ -55,25 +56,44 @@ function Card(props) {
         return appendAuthToken(baseUrl);
     }
     
+    const handleOpenModal = useCallback(() => {
+        setIsModalOpen(true)
+    }, [])
+
+    const handleCloseModal = useCallback(() => {
+        setIsModalOpen(false)
+    }, [])
+
+    const previewImageSrc = appendAuthToken(`${backend_url}/${props.data.path}`)
+    const previewVideoSrc = getVideoStreamUrl(props.data.path)
+
     return (
         <>
             <div className='cardBox' index={props.index}>
-                {isVideo ? (
-                    <video 
-                        controls 
-                        // style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
-                        src={getVideoStreamUrl(props.data.path)}
-                        preload="metadata"
-                    >
-                        Your browser does not support the video tag.
-                    </video>
-                ) : (
-                    <img 
-                        src={appendAuthToken(`${backend_url}/${props.data.path}`)} 
-                        // style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }}
-                        alt={props.data.title} 
-                    />
-                )}
+                <div
+                    className='cardPreview'
+                    role='button'
+                    tabIndex={0}
+                    onClick={handleOpenModal}
+                >
+                    {isVideo ? (
+                        <video
+                            className='cardPreviewMedia'
+                            src={previewVideoSrc}
+                            preload="metadata"
+                            muted
+                            playsInline
+                        />
+                    ) : (
+                        <img
+                            className='cardPreviewMedia'
+                            src={previewImageSrc}
+                            alt={props.data.title}
+                            loading='lazy'
+                        />
+                    )}
+                    <span className='cardPreviewHint'>Tap to open</span>
+                </div>
                 <span className='imgTitle'>{props.data.title}</span>
                 <span className='imgUploadBy'>Uploaded By : {props.data.username}</span>
 
@@ -87,6 +107,34 @@ function Card(props) {
                     <span>Download</span>
                 </button>
             </div>
+            {isModalOpen && (
+                <div className='mediaModalOverlay' onClick={handleCloseModal}>
+                    <div className='mediaModalContent' onClick={event => event.stopPropagation()}>
+                        <button className='mediaModalClose' type='button' onClick={handleCloseModal} aria-label='Close preview'>
+                            &times;
+                        </button>
+                        <div className='mediaModalBody'>
+                            {isVideo ? (
+                                <video
+                                    src={previewVideoSrc}
+                                    controls
+                                    autoPlay
+                                    playsInline
+                                />
+                            ) : (
+                                <img
+                                    src={previewImageSrc}
+                                    alt={props.data.title}
+                                />
+                            )}
+                        </div>
+                        <div className='mediaModalMeta'>
+                            <div className='mediaModalTitle'>{props.data.title}</div>
+                            <div className='mediaModalUploader'>Uploaded by {props.data.username}</div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     )
 }

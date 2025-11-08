@@ -350,21 +350,65 @@ footer>p>a{
 
 .cardBox{
   width: 280px;
-  /* height: 420px; */
-  border: 3px solid rgb(0, 0, 0);
+  /* border: 2px solid rgb(0, 0, 0); */
   background-color: #282424;
   border-radius: 15px;
   overflow: hidden;
   margin: 10px 5px;
   padding-bottom: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
-.cardBox img, .cardBox video{
+.cardPreview {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  background-color: #111;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.cardPreview:focus-visible {
+  outline: 2px solid #5b8def;
+  outline-offset: 2px;
+}
+
+.cardPreviewMedia {
   display: block;
   max-width: 100%;
-  height: 280px;
+  max-height: 100%;
   object-fit: contain;
-  margin: auto;
+  transition: transform 0.25s ease;
+}
+
+.cardPreview:hover .cardPreviewMedia,
+.cardPreview:focus-visible .cardPreviewMedia {
+  transform: scale(1.02);
+}
+
+.cardPreviewHint {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #f5f5f5;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.cardPreview:hover .cardPreviewHint,
+.cardPreview:focus-visible .cardPreviewHint {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .imgTitle{
@@ -422,6 +466,125 @@ footer>p>a{
   transition: 0.7s;
  }
  
+
+.mediaModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 24px;
+}
+
+.mediaModalContent {
+  position: relative;
+  max-width: min(960px, 92vw);
+  max-height: 92vh;
+  background: #1d1d1d;
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mediaModalClose {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  z-index: 99999999;
+}
+
+.mediaModalClose:hover,
+.mediaModalClose:focus-visible {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.mediaModalBody {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mediaModalBody img,
+.mediaModalBody video {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.mediaModalMeta {
+  padding: 16px 20px 20px;
+  color: #f5f5f5;
+  font-family: 'Poppins', sans-serif;
+}
+
+.mediaModalTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.mediaModalUploader {
+  font-size: 14px;
+  color: #cfcfcf;
+}
+
+@media (max-width: 640px) {
+  .cardBox {
+    width: 100%;
+    max-width: 360px;
+  }
+
+  .cardPreview {
+    height: 220px;
+  }
+
+  .mediaModalOverlay {
+    padding: 16px;
+  }
+
+  .mediaModalContent {
+    width: 100%;
+    max-height: 90vh;
+    border-radius: 14px;
+  }
+
+  .mediaModalClose {
+    top: 8px;
+    right: 10px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .mediaModalMeta {
+    padding: 12px 16px 18px;
+  }
+
+  .mediaModalTitle {
+    font-size: 16px;
+  }
+
+  .mediaModalUploader {
+    font-size: 13px;
+  }
+}
  .button:hover span {
   padding-right: 3.55em;
  }
