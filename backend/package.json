@@ -25,7 +25,10 @@
     "sharp": "^0.33.2",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "fluent-ffmpeg": "^2.1.2",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "bullmq": "^5.8.3",
+    "ioredis": "^5.4.1",
+    "piscina": "^4.5.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

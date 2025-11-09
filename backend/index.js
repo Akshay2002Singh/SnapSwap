@@ -5,6 +5,7 @@ const app = express()
 const port = process.env.PORT || 3003
 const connect_to_database = require('./database/connect')
 const staticWatermarkMiddleware = require('./middleware/staticWatermark')
+const { initWatermarkProcessing } = require('./jobs/watermarkQueue')
 
 // data base connection 
 connect_to_database().catch(err => console.log(err))
@@ -19,6 +20,10 @@ app.use('/static', express.static('static'))
 app.use('/',require('./routes/basic'))
 app.use('/api/auth',require('./routes/auth'))
 app.use('/api/images',require('./routes/image'))
+
+initWatermarkProcessing().catch((error) => {
+    console.error('Failed to initialize watermark processing pipeline:', error)
+})
 
 
 app.listen(port,()=>{

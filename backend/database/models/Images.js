@@ -18,6 +18,15 @@ const imageSchema = new Schema({
         unique: true,
         index: true
     },
+    isReady: {
+        type: Boolean,
+        default: false,
+        index: true,
+    },
+    processingError: {
+        type: String,
+        default: null,
+    },
     username : {
         type : String,
         required : true

@@ -8,12 +8,9 @@ const path = require('path')
 const fs = require('fs')
 const fsPromises = fs.promises
 const { v4: uuidv4 } = require('uuid')
-const sharp = require('sharp')
-const ffmpeg = require('fluent-ffmpeg')
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
 const { verifyAuthToken } = require('../utils')
-
-ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+const { normalizeRelative, buildWatermarkPath } = require('../services/mediaUtils')
+const { enqueueWatermarkJob } = require('../jobs/watermarkQueue')
 
 // Ensure directories exist
 const imagesDir = './static/images/'
@@ -23,106 +20,6 @@ if (!fs.existsSync(imagesDir)) {
 }
 if (!fs.existsSync(videosDir)) {
     fs.mkdirSync(videosDir, { recursive: true })
-}
-
-const normalizeRelative = (filePath) => filePath.replace(/\\/g, '/')
-
-const buildWatermarkPath = (relativePath) => {
-    const normalized = normalizeRelative(relativePath)
-    const dir = path.posix.dirname(normalized)
-    const filename = path.posix.basename(normalized)
-    return `${dir}/watermark_${filename}`
-}
-
-const createImageWatermark = async (sourcePath, targetPath) => {
-    const image = sharp(sourcePath)
-    const metadata = await image.metadata()
-    const width = metadata.width || 800
-    const height = metadata.height || 600
-    const overlaySvg = `
-        <svg width="${width}" height="${height}">
-            <rect width="100%" height="100%" fill="#000000" fill-opacity="0.2"/>
-            <style>
-                .watermark {
-                    fill: rgba(255,255,255,0.65);
-                    font-weight: 700;
-                    font-size: ${Math.round(Math.min(width, height) / 4)}px;
-                    font-family: 'Arial', 'Helvetica', sans-serif;
-                }
-            </style>
-            <text x="50%" y="50%" text-anchor="middle" class="watermark" transform="rotate(-30 ${width / 2} ${height / 2})">
-                SnapSwap
-            </text>
-        </svg>
-    `
-
-    await sharp(sourcePath)
-        .composite([{ input: Buffer.from(overlaySvg), gravity: 'center' }])
-        .toFile(targetPath)
-}
-
-const createVideoWatermark = async (sourcePath, targetPath) => {
-    const overlaySvg = `
-        <svg width="800" height="200">
-            <rect width="100%" height="100%" fill="rgba(0,0,0,0.35)" rx="28" ry="28"/>
-            <style>
-                .headline {
-                    fill: rgba(255,255,255,0.85);
-                    font-weight: 700;
-                    font-size: 72px;
-                    font-family: 'Arial', 'Helvetica', sans-serif;
-                }
-                .subhead {
-                    fill: rgba(255,255,255,0.75);
-                    font-weight: 600;
-                    font-size: 32px;
-                    font-family: 'Arial', 'Helvetica', sans-serif;
-                }
-            </style>
-            <text x="50%" y="55%" text-anchor="middle" class="headline">SnapSwap</text>
-            <text x="50%" y="85%" text-anchor="middle" class="subhead">Watermarked Preview</text>
-        </svg>
-    `
-
-    const overlayTempPath = `${targetPath}.overlay.png`
-    await sharp({
-        create: {
-            width: 800,
-            height: 200,
-            channels: 4,
-            background: { r: 0, g: 0, b: 0, alpha: 0 }
-        }
-    })
-        .composite([{ input: Buffer.from(overlaySvg), gravity: 'center' }])
-        .png()
-        .toFile(overlayTempPath)
-
-    await new Promise((resolve, reject) => {
-        ffmpeg(sourcePath)
-            .input(overlayTempPath)
-            .complexFilter([
-                {
-                    filter: 'overlay',
-                    options: {
-                        x: '(main_w-overlay_w)/2',
-                        y: '(main_h-overlay_h)/2'
-                    }
-                }
-            ])
-            .outputOptions([
-                '-c:v libx264',
-                '-preset ultrafast',
-                '-crf 23',
-                '-c:a copy'
-            ])
-            .save(targetPath)
-            .on('end', () => {
-                fs.unlink(overlayTempPath, () => resolve())
-            })
-            .on('error', (error) => {
-                fs.unlink(overlayTempPath, () => reject(error))
-            })
-    })
 }
 
 const storage = multer.diskStorage({
@@ -185,45 +82,53 @@ router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
     const originalAbsolutePath = path.resolve(originalRelativePath)
     const watermarkAbsolutePath = path.resolve(watermarkRelativePath)
 
+    let createdRecord = null
+
     try {
-        if (fs.existsSync(watermarkAbsolutePath)) {
-            fs.unlinkSync(watermarkAbsolutePath)
-        }
-
-        if (fileType === 'image') {
-            await createImageWatermark(originalAbsolutePath, watermarkAbsolutePath)
-        } else {
-            await createVideoWatermark(originalAbsolutePath, watermarkAbsolutePath)
-        }
-
-        const createdRecord = await ImageModel.create({
+        createdRecord = await ImageModel.create({
             title: req.body.title,
             path: originalRelativePath,
             watermarkPath: watermarkRelativePath,
             username: req.header.username,
-            fileType: fileType
+            fileType: fileType,
+            isReady: false,
+            processingError: null,
+        })
+
+        await enqueueWatermarkJob({
+            imageId: createdRecord._id.toString(),
+            originalPath: originalRelativePath,
+            watermarkPath: watermarkRelativePath,
+            fileType,
         })
 
         // Create tags
         const tags = JSON.parse(req.body.tags || '[]')
-        tags.forEach((element) => {
-            if (element.trim()) {
-                TagModel.create({
-                    tag: element,
-                    path: originalRelativePath
-                }).catch(e => console.log(e))
-            }
-        });
+        const trimmedTags = Array.isArray(tags) ? tags : []
 
-        res.json({
-            'msg': fileType === 'video' ? "video saved" : "image saved",
+        await Promise.all(
+            trimmedTags
+                .map((element) => String(element || '').trim())
+                .filter(Boolean)
+                .map((tag) =>
+                    TagModel.create({
+                        tag,
+                        path: originalRelativePath
+                    })
+                )
+        )
+
+        return res.status(202).json({
+            'msg': 'Upload received. Watermark processing scheduled.',
             'data': {
                 _id: createdRecord._id,
                 title: createdRecord.title,
                 path: createdRecord.path,
                 watermarkPath: createdRecord.watermarkPath,
                 username: createdRecord.username,
-                fileType: createdRecord.fileType
+                fileType: createdRecord.fileType,
+                isReady: createdRecord.isReady,
+                processingError: createdRecord.processingError,
             }
         })
     } catch (error) {
@@ -234,6 +139,10 @@ router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
         if (fs.existsSync(watermarkAbsolutePath)) {
             fs.unlinkSync(watermarkAbsolutePath)
         }
+        if (createdRecord?._id) {
+            await ImageModel.findByIdAndDelete(createdRecord._id).catch(() => { })
+        }
+        await TagModel.deleteMany({ path: originalRelativePath }).catch(() => { })
         console.error('Error saving file:', error)
         return res.status(500).json({
             'msg': "file not saved"
@@ -365,7 +274,7 @@ router.get('/stream/:filename', async (req, res) => {
 
 router.get('/getImages', async (req, res) => {
     let page = req.query.page;
-    const data = await ImageModel.find({}).catch((e) => {
+    const data = await ImageModel.find({isReady: true}).catch((e) => {
         return res.status(400).json({
             'msg': "error"
         })
@@ -471,8 +380,15 @@ router.post('/search', async (req, res) => {
             {
                 $lookup: {
                     from: imageCollectionName,
-                    localField: '_id',
-                    foreignField: 'path',
+                    let: { matchedPath: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: { $eq: ['$path', '$$matchedPath'] },
+                                isReady: true,
+                            }
+                        }
+                    ],
                     as: 'media'
                 }
             },
