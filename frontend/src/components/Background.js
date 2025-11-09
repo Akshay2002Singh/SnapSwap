@@ -112,4 +112,4 @@ function Background() {
   )
 }
 
-export default Background
+export default React.memo(Background)
