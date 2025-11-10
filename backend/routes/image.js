@@ -49,16 +49,36 @@ const fileFilter = (req, file, cb) => {
     }
 }
 
+// Get max file size from environment variable (default: 12MB)
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '12582912') // 12MB in bytes (12 * 1024 * 1024)
+
 // Create separate upload handlers for images and videos
 const upload = multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 12 * 1024 * 1024 // 12MB max for videos (also applies to images)
+        fileSize: MAX_FILE_SIZE // Max file size from environment variable
     }
 })
 
-router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
+router.post('/upload', fetchUser, (req, res, next) => {
+    upload.single("photo")(req, res, (err) => {
+        // Handle multer errors (e.g., file size exceeded)
+        if (err) {
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                const maxSizeMB = Math.round(MAX_FILE_SIZE / (1024 * 1024))
+                return res.status(400).json({
+                    'msg': `File size exceeds ${maxSizeMB}MB limit`
+                })
+            }
+            // Handle other multer errors
+            return res.status(400).json({
+                'msg': err.message || "File upload error"
+            })
+        }
+        next()
+    })
+}, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({
             'msg': "No file uploaded or file type not supported"
@@ -67,15 +87,6 @@ router.post('/upload', fetchUser, upload.single("photo"), async (req, res) => {
 
     // Determine file type
     const fileType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
-
-    // Check file size for videos (5MB limit)
-    if (fileType === 'video' && req.file.size > 12 * 1024 * 1024) {
-        // Delete the uploaded file
-        fs.unlinkSync(req.file.path)
-        return res.status(400).json({
-            'msg': "Video size exceeds 5MB limit"
-        })
-    }
 
     const originalRelativePath = normalizeRelative(req.file.path)
     const watermarkRelativePath = buildWatermarkPath(originalRelativePath)

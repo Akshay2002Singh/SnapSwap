@@ -44,6 +44,9 @@ PORT=3003
 MONGO_URI=<your Mongo connection string>
 JWT_SECRET=<secret used to sign auth tokens>
 
+# File upload limits
+MAX_FILE_SIZE=12582912              # Maximum file size in bytes (default: 12MB = 12582912 bytes)
+
 # Watermark processing
 WATERMARK_DRIVER=threadpool        # threadpool | bullmq
 WATERMARK_QUEUE_NAME=watermark-processing
@@ -62,7 +65,10 @@ Create a `.env` file in `frontend/` with following keys:
 
 ```
 REACT_APP_BACKEND_URL=http://localhost:3003
+REACT_APP_MAX_FILE_SIZE=12582912   # Maximum file size in bytes (default: 12MB = 12582912 bytes)
 ```
+
+**Note:** The `REACT_APP_MAX_FILE_SIZE` should match the `MAX_FILE_SIZE` value in the backend `.env` file to ensure consistent validation on both frontend and backend.
 
 ## Local Development
 

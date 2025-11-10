@@ -7,6 +7,9 @@ import Background from './Background';
 import Alertmst from './Alertmst';
 import { useNavigate } from 'react-router-dom';
 
+// Get max file size from environment variable (default: 12MB)
+const MAX_FILE_SIZE = parseInt(process.env.REACT_APP_MAX_FILE_SIZE || '12582912') // 12MB in bytes
+
 function Upload(props) {
     const navigate = useNavigate()
     const [title, setTitle] = useState("")
@@ -41,8 +44,8 @@ function Upload(props) {
         const data = await response.json()
         if(data.msg === "file not saved" || data.msg === "image not saved"){
             setMsg("Something went wrong, Data not saved")
-        }else if(data.msg === "Video size exceeds 12MB limit"){
-            setMsg("Video size exceeds 12MB limit. Please upload a smaller video.")
+        }else if(data.msg && data.msg.includes("size exceeds") && data.msg.includes("limit")){
+            setMsg(data.msg + ". Please upload a smaller file.")
         }else{
             setTitle("")
             if(fileType === "image") {
@@ -71,9 +74,10 @@ function Upload(props) {
             const isImage = file.type.startsWith('image/');
             
             if (isVideo) {
-                // Check file size (12MB limit)
-                if (file.size > 12 * 1024 * 1024) {
-                    setMsg("Video size exceeds 12MB limit. Please select a smaller video.");
+                // Check file size
+                if (file.size > MAX_FILE_SIZE) {
+                    const maxSizeMB = Math.round(MAX_FILE_SIZE / (1024 * 1024))
+                    setMsg(`Video size exceeds ${maxSizeMB}MB limit. Please select a smaller video.`);
                     e.target.value = ""; // Reset file input
                     return;
                 }
@@ -100,6 +104,13 @@ function Upload(props) {
                 videoPreview.style.display = "block";
                 imgPreview.style.display = "none";
             } else if (isImage) {
+                // Check file size for images
+                if (file.size > MAX_FILE_SIZE) {
+                    const maxSizeMB = Math.round(MAX_FILE_SIZE / (1024 * 1024))
+                    setMsg(`Image size exceeds ${maxSizeMB}MB limit. Please select a smaller image.`);
+                    e.target.value = ""; // Reset file input
+                    return;
+                }
                 setFileType("image");
                 setImage(file);
                 
@@ -169,7 +180,9 @@ function Upload(props) {
                         <label htmlFor="Profile">Upload Image or Video</label>
                         <input type="file" name="Profile" id="Profile" accept="image/*,video/*" onChange={handlePhoto} required />
                         <img src={defaultImg} alt='Image Preview' id='imgPreview' style={{display: 'block'}} />
-                        <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>Videos must be 5MB or less</p>
+                        <p style={{fontSize: '12px', color: '#666', marginTop: '5px'}}>
+                            Maximum file size: {Math.round(MAX_FILE_SIZE / (1024 * 1024))}MB
+                        </p>
                     </div>
                     <p className="sub-title">Tags</p>
                     <div className='flex-container'>
