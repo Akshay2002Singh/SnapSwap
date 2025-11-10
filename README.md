@@ -26,8 +26,8 @@ Additional guides:
 
 ## Live Deployments
 
-- Frontend: https://snapswapfrontend.onrender.com/
-- Backend: https://snapswapbackend.onrender.com/
+- Frontend: [https://snapswap-ndy5.onrender.com/](https://snapswap-ndy5.onrender.com/)
+- Backend: [https://snapswap.rapidcoders.in/](https://snapswap.rapidcoders.in/)
 
 ## Prerequisites
 
